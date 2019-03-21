@@ -1,0 +1,61 @@
+---
+title: "EDA"
+author: "NAF"
+date: "3/18/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+rm(list=ls())
+library(dplyr)
+```
+
+```{r}
+smash3<- read.csv('Data/Elo_vF.csv')
+
+PlayerARatings <- smash3 %>% select(Player=Player.A, Rating=Rating.A..Post., Date)  %>% group_by(Player, Date) %>% summarise(max(Rating))
+
+PlayerBRatings <- smash3 %>% select(Player=Player.B, Rating=Rating.B..Post., Date)  %>% group_by(Player, Date) %>% summarise(max(Rating)) 
+
+PlayerRatings <- PlayerARatings %>%
+  bind_rows(PlayerBRatings) %>%
+  group_by(Player, Date) %>%
+  rename(Rating='max(Rating)') %>% 
+  summarise(max(Rating)) %>%
+  rename(Rating='max(Rating)') %>% 
+  ungroup()
+
+PlayerRatings <- PlayerRatings %>% mutate(Date=as.Date(Date))
+
+Top10PlayerNames <- PlayerRatings %>%
+  mutate(month = format(Date, "%m"), year = format(Date, "%Y")) %>% 
+  group_by(month, year, Player) %>%
+  summarise(max(Rating)) %>% ungroup() %>%
+  rename(Rating='max(Rating)') %>%
+  arrange(desc(Rating)) %>%
+  group_by(month, year) %>%
+  mutate(rank=row_number()) %>%
+  arrange(year, month) %>% ungroup() %>%
+  filter(rank<=10) %>% select(Player) %>% distinct()
+
+PlayerRatings <- PlayerRatings %>% 
+  filter(Player %in% Top10PlayerNames$Player)
+
+#uncomment to save as CSV
+#write.csv(PlayerRatings, 'Data/PlayerRatings.csv', row.names=FALSE)
+#write.csv(head(PlayerRatings, 20), 'Data/PlayerRatingsToy.csv', row.names=FALSE)
+```
+
+```{r}
+
+  
+  
+  
+```
+
+
+

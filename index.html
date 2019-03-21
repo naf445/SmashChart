@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+
+<style type="text/css">
+
+  svg{border: 1px solid #003366;
+    }
+
+  .track,
+  .track-inset,
+  .track-overlay {
+    stroke-linecap: round;
+  }
+
+  .track {
+    stroke: #000;
+    stroke-opacity: 0.3;
+    stroke-width: 10px;
+  }
+
+  .track-inset {
+    stroke: #dcdcdc;
+    stroke-width: 8px;
+  }
+
+  .track-overlay {
+    pointer-events: stroke;
+    stroke-width: 50px;
+    stroke: transparent;
+  }
+
+  .handle {
+      fill: #fff;
+      stroke: #000;
+      stroke-opacity: 0.5;
+      stroke-width: 1.25px;
+    }
+
+</style>
+
+<body>
+</body>
+
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script src="//d3js.org/d3-scale-chromatic.v0.3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3-legend/2.25.6/d3-legend.js"></script>
+
+<script>
+//setting our margins. Margin is just a JS object we can call our margins from. The margin is the part inside the SVG that pads the outside of the chart and leaves space for things to go between the chart and the outline of the outer svg like title, legends, axes, etc...
+var margin = {top: 50, right: 30, bottom: 50, left: 30};
+
+//the chart width and height are defined as the 
+var chartWidth = 650 - margin.left - margin.right,
+    chartHeight = 500 - margin.top - margin.bottom;
+
+//creating the svg to hold the chart using my margins
+var svg = d3.select("body").append("svg")
+    .attr("width", chartWidth + margin.left + margin.right)
+    .attr("height", chartHeight + margin.top + margin.bottom)
+ 
+//creating a group within this svg which will hold all of my chart items with id 'chart'
+var gChart = svg.append("g")
+	.attr('id', 'chart')
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+//putting a rectangle inside my group object within my svg just so i can see where my chart area lies!
+var rect = gChart.append("rect")
+  .attr('width', chartWidth)
+  .attr('height', chartHeight)
+  .attr('fill', '#B3D5E7')
+    .attr('opacity', 0.2);
+
+// appending a slider group but not the actual object yet 
+var gSlider = svg.append("g")
+  .attr("id", "slider")
+  .attr("transform", "translate(" + margin.left + "," + (chartHeight + margin.top) + ")");
+
+//creating a group within this svg which will hold my button items of my chart items with id 'button'
+var gButton = svg.append("g")
+  .attr('id', 'button')
+  .attr("transform", "translate(" + margin.left + "," + (chartHeight + margin.top + 15) + ")");
+
+//putting a button under my chart
+var playButton = gButton.append("rect")
+                        .attr('width', 50)
+                        .attr('height', 30)
+                        .attr('id', 'play-button')
+                        .attr('fill', '#f08080')
+                        .on("mouseover", function() {
+                            d3.select(this)
+                           .attr("fill", "#696969")
+                            })   
+                        .on("mouseout", function() {
+                            d3.select(this)
+                           .attr("fill", "#f08080")
+                            });  
+
+                 
+
+var parseDate = d3.timeParse("%Y-%m-%d");
+
+var xScaleFunction = d3.scaleTime()
+                        .range([0, chartWidth])
+                        .clamp(true);
+
+var yScaleFunction = d3.scaleLinear()
+                        .range([chartHeight , 0])
+                        .clamp(true);
+
+var colorScaleFunction = d3.scaleOrdinal().range(d3.schemeDark2);
+
+
+var lineValue = d3.line()
+                .x(function(d){return xScaleFunction(d.Date)})
+                .y(function(d){return yScaleFunction(d.Rating)})
+
+var round = d3.format(".2f");
+
+gSlider.append("line") //now appending a line
+  .attr("class", "track")
+  .attr("x1", xScaleFunction.range()[0]) //the starting and end points of this line are the starting and end points of the time scale
+  .attr("x2", xScaleFunction.range()[1])
+  .select(function() { return this.parentNode.appendChild(this.cloneNode(true)); }) //clones this same thing once here and once below
+    .attr("class", "track-inset")
+  .select(function() { return this.parentNode.appendChild(this.cloneNode(true)); })
+    .attr("class", "track-overlay")
+    .call(d3.drag()
+      .on("start.interrupt", function() { gSlider.interrupt(); })
+      .on("start drag", function() {
+          slide(xScaleFunction.invert(d3.event.x));
+        }))
+
+var handle = gSlider.insert("circle", ".track-overlay")
+    .attr("class", "handle")
+    .attr("r", 9); //selects the slider group, puts a circle in there with class handle and radius 9
+
+function slide(h) {
+  handle.attr("cx", xScaleFunction(h))
+}
+
+d3.csv('Data/PlayerRatingsToy.csv', ready);
+
+function ready(data) {
+
+    var names = []
+
+    //formatting data
+    data.forEach(function(d){
+        d.Date=parseDate(d.Date);
+        d.Rating=round(+d.Rating, 2);
+        names.push(d.Player);
+    });
+
+    names=[...new Set(names)]
+    console.log(names)
+
+    //set scale ranges
+    xScaleFunction.domain([d3.min(data, function(d){return d.Date}),d3.max(data, function(d){return d.Date})])
+    yScaleFunction.domain([d3.min(data, function(d){return d.Rating}),d3.max(data, function(d){return d.Rating})])
+    colorScaleFunction.domain(names)
+
+    //add lines
+    gChart.append("path")
+      .data([data.filter(function(d) {return d.Player == names[0]})])
+      .attr("class", "line")
+      .attr("d", lineValue)
+      .attr('fill', "none")
+      .attr("stroke", function(d) { return colorScaleFunction(names[0])});
+
+    gChart.append("path")
+      .data([data.filter(function(d) {return d.Player == names[1]})])
+      .attr("class", "line")
+      .attr("d", lineValue)
+      .attr('fill', "none")
+      .attr("stroke", function(d) { return colorScaleFunction(names[1])});
+}
+
+
+
+
+
+</script>
+
+
+
+
+
+
